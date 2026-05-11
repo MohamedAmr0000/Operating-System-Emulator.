@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows 11 Pro - Mohamed Amr Edition | Task Manager</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --start-bg: rgba(32, 32, 32, 0.85);
+            --taskbar-bg: rgba(28, 28, 28, 0.85);
+            --hover-white: rgba(255, 255, 255, 0.1);
+            --accent: #0078d4;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+
+        body {
+            height: 100vh;
+            width: 100vw;
+            background: url('https://images.unsplash.com/photo-1537498425277-c283d32ef9db') center/cover no-repeat;
+            font-family: "Segoe UI Variable Display", "Segoe UI", sans-serif;
+            overflow: hidden;
+            color: white;
+        }
+
+        /* Big clock */
+        .top-clock {
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            z-index: 5;
+            text-shadow: 0 4px 15px rgba(0,0,0,0.6);
+        }
+        .top-clock h1 { font-size: 5rem; font-weight: 600; line-height: 1; }
+        .top-clock p { font-size: 1.4rem; margin-top: 10px; opacity: 0.9; }
+
+        /* Desktop Area */
+        .desktop { 
+            height: calc(100vh - 48px); 
+            padding: 20px; 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, 90px); 
+            grid-template-rows: repeat(auto-fill, 100px);
+            gap: 10px;
+            align-content: start;
+        }
+        .item { width: 80px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; }
+        .item:hover { background: rgba(255, 255, 255, 0.1); }
+        .item img { width: 48px; }
+        .item span { font-size: 12px; margin-top: 5px; text-shadow: 0 1px 2px black; text-align: center; }
+
+        /* Start Menu */
+        .start-menu {
+            position: fixed;
+            bottom: -700px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 540px;
+            height: 600px;
+            background: var(--start-bg);
+            backdrop-filter: blur(40px) saturate(150%);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            transition: bottom 0.4s cubic-bezier(0.1, 0.9, 0.2, 1);
+            padding: 30px;
+            z-index: 9999;
+        }
+        .start-menu.show { bottom: 60px; }
+
+        .search-container { margin-bottom: 30px; position: relative; }
+        .search-box {
+            width: 100%;
+            background: rgba(0,0,0,0.4);
+            border: none;
+            border-bottom: 2px solid var(--accent);
+            padding: 12px 15px;
+            border-radius: 4px 4px 0 0;
+            color: white;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .apps-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 15px;
+            overflow-y: auto;
+            max-height: 400px;
+        }
+        .app-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 10px 0;
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+        .app-icon:hover { background: var(--hover-white); }
+        .app-icon img { width: 35px; height: 35px; }
+        .app-icon span { font-size: 11px; text-align: center; }
+
+        /* Taskbar */
+        .taskbar {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 48px;
+            background: var(--taskbar-bg);
+            backdrop-filter: blur(30px);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 12px; z-index: 10000;
+            
+        }
+        .tb-icons-center { position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; }
+        .tb-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; }
+        .tb-btn:hover { background: var(--hover-white); }
+        .tb-btn img { width: 26px; }
+
+        /* Windows */
+        .window {
+            position: absolute; top: 15%; left: 20%; width: 700px; height: 450px;
+            background: rgba(20, 20, 20, 0.98); border: 1px solid #444; border-radius: 8px;
+            display: none; flex-direction: column; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+            z-index: 1000; backdrop-filter: blur(10px);
+        }
+        .win-header { background: #2b2b2b; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border-radius: 8px 8px 0 0; cursor: move; }
+        .win-body { flex: 1; padding: 15px; font-family: 'Cascadia Code', 'Consolas', monospace; color: #ccc; overflow-y: auto; font-size: 14px; }
+        
+        .cmd-line { display: flex; gap: 8px; align-items: center; margin-top: 5px; }
+        .cmd-input { background: transparent; border: none; color: #fff; outline: none; flex: 1; font-family: inherit; font-size: 14px; }
+
+        /* Task Manager Table */
+        .taskmanager-table {
+            width: 100%;
+            border-collapse: collapse;
+            color: #ddd;
+            font-size: 12px;
+        }
+        .taskmanager-table th, .taskmanager-table td {
+            padding: 10px 6px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        .taskmanager-table th {
+            background: #1e1e1e;
+            color: #0078d4;
+            font-weight: 600;
+        }
+        .taskmanager-table tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        .end-task-btn {
+            background: #d32f2f;
+            border: none;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .end-task-btn:hover {
+            background: #f44336;
+        }
+        .resource-bar {
+            display: inline-block;
+            width: 50px;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        .resource-fill {
+            height: 100%;
+            background: #0078d4;
+            border-radius: 3px;
+        }
+        .resource-high {
+            background: #ff9800;
+        }
+        .resource-critical {
+            background: #f44336;
+        }
+
+        .context-menu {
+            position: fixed;
+            display: none;
+            background: rgba(32, 32, 32, 0.95);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            width: 220px;
+            z-index: 100000;
+            padding: 5px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        }
+        .menu-item {
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .context-menu hr {
+            border: none;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin: 5px 0;
+        }
+
+
+        
+
+/* ========================= */
+/* Keyboard Style */
+/* ========================= */
+
+.keyboard-container {
+    background: rgba(30, 34, 48, 0.7);
+    backdrop-filter: blur(4px);
+    border-radius: 25px;
+    padding: 20px 15px;
+    border: 1px solid rgba(255,255,255,0.1);
+    width: 100%;
+    overflow-x: auto;
+    margin: auto;
+}
+
+.keyboard-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    justify-content: center;
+}
+
+.key {
+    background: #2a2e3f;
+    color: white;
+    min-width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    font-family: monospace;
+    cursor: pointer;
+    transition: 0.08s;
+    box-shadow: 0 4px 0 #111;
+}
+
+.key:hover {
+    background: #3a3f55;
+}
+
+.key.active {
+    background: #f5b042 !important;
+    color: black !important;
+    transform: scale(0.95);
+    box-shadow: 0 0 15px #ffb347;
+}
+
+.key.wide {
+    min-width: 90px;
+}
+
+.key.space {
+    min-width: 320px;
+}
+
+.key.tiny {
+    font-size: 12px;
+}
+
+.window {
+    pointer-events: auto;
+}
+
+.taskbar {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    height: 48px;
+    z-index: 999999;
+    pointer-events: auto;
+}
+.window {
+    pointer-events: auto;
+}
+
+
+/* تنسيق قائمة كليك يمين */
+.context-menu {
+    display: none; /* بتختفي وتظهر بالـ JS */
+    position: fixed; 
+    background-color: rgba(32, 32, 32, 0.95); /* لون دارك شيك */
+    backdrop-filter: blur(10px); /* تأثير الزجاج بتاع ويندوز 11 */
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 5px;
+    min-width: 180px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    z-index: 100000; /* لازم يكون رقم كبير جداً */
+}
+
+.menu-item {
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.menu-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.context-menu hr {
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 5px 0;
+}
+
+
+
+    </style>
+</head>
+<body>
+
+    <div class="top-clock">
+        <h1 id="big-time">00:00</h1>
+        <p id="big-date">Loading...</p>
+    </div>
+
+    <div class="desktop" id="desktop" onclick="closeAll()">
+        <div class="item" ondblclick="alert('This PC - Windows 11 Pro')">
+            <img src="https://img.icons8.com/fluency/96/computer.png">
+            <span>This PC</span>
+        </div>
+    </div>
+
+    <!-- Terminal Window -->
+    <div class="window" id="terminalWin">
+        <div class="win-header" id="termHeader">
+            <div style="font-size: 12px; display: flex; align-items: center; gap: 8px;">
+                <img src="https://img.icons8.com/color/48/ubuntu.png" width="16">
+                <span>mohamed@ubuntu: ~</span>
+            </div>
+            <div onclick="closeTerminal()" style="cursor:pointer; font-size: 18px; padding: 0 5px;">&times;</div>
+        </div>
+        <div class="win-body" id="termBody">
+            <div style="color: #fff;">Windows Subsystem for Linux Enterprise</div>
+            <div>Welcome to Ubuntu 22.04 LTS...</div>
+            <br>
+            <div id="termHistory"></div>
+            <div class="cmd-line">
+                <span style="color: #8ae234; font-weight: bold;">mohamed@ubuntu</span>:<span style="color: #729fcf;">~</span>$
+                <input type="text" class="cmd-input" id="termInput" spellcheck="false" autocomplete="off">
+            </div>
+        </div>
+    </div>
+
+    <!-- Notepad Window -->
+    <div class="window" id="notepadWin" style="width: 500px; height: 400px; left: 30%; top: 20%;">
+        <div class="win-header">
+            <div style="font-size: 12px; display: flex; align-items: center; gap: 8px;">
+                <img src="https://img.icons8.com/color/48/notepad.png" width="16">
+                <span id="notepadTitle">Notepad</span>
+            </div>
+            <div onclick="closeNotepad()" style="cursor:pointer; font-size: 18px; padding: 0 5px;">&times;</div>
+        </div>
+        <div class="win-body" style="background: white; color: black; padding: 0;">
+            <textarea id="notepadContent" style="width: 100%; height: 100%; border: none; outline: none; padding: 10px; resize: none; font-family: 'Segoe UI', sans-serif;"></textarea>
+        </div>
+    </div>
+
+    <!-- Task Manager Window -->
+    <div class="window" id="taskManagerWin" style="width: 750px; height: 500px; left: 22%; top: 22%;">
+        <div class="win-header" id="taskManagerHeader">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-chart-line"></i>
+                <span>Task Manager</span>
+            </div>
+            <div onclick="closeTaskManager()" style="cursor:pointer; font-size: 18px; padding: 0 5px;">&times;</div>
+        </div>
+        <div class="win-body" id="taskManagerBody">
+            <div style="margin-bottom: 15px; display: flex; gap: 25px; font-size: 12px;">
+                <div>🧠 CPU Usage: <span id="totalCPU">0</span>%</div>
+                <div>💾 Memory Usage: <span id="totalRAM">0</span> MB</div>
+            </div>
+            <table class="taskmanager-table" id="taskTable">
+                <thead>
+                    <tr>
+                        <th>Process</th>
+                        <th>Status</th>
+                        <th>CPU</th>
+                        <th>Memory (RAM)</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="taskListBody">
+                </tbody>
+            </table>
+            <div style="margin-top: 15px; font-size: 11px; color: #888; text-align: center;">
+                * Right-click on taskbar → Task Manager
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Menu -->
+    <div class="start-menu" id="startMenu">
+        <div class="search-container">
+            <input type="text" class="search-box" id="searchInput" placeholder="Type here to search..." onkeyup="searchApps()">
+        </div>
+        <div id="pinned-text" style="margin-bottom: 15px; font-weight: 600; font-size: 14px;">Pinned</div>
+        <div class="apps-grid" id="appsGrid">
+            <div class="app-icon" data-name="edge"><img src="https://img.icons8.com/color/96/microsoft-edge.png"><span>Edge</span></div>
+            <div class="app-icon" data-name="word"><img src="https://img.icons8.com/color/96/microsoft-word-2019.png"><span>Word</span></div>
+            <div class="app-icon" data-name="excel"><img src="https://img.icons8.com/color/96/microsoft-excel-2019.png"><span>Excel</span></div>
+            <div class="app-icon" data-name="terminal" onclick="openTerminalApp()"><img src="https://img.icons8.com/color/96/console.png"><span>Terminal</span></div>
+            <div class="app-icon" data-name="notepad"><img src="https://img.icons8.com/color/48/notepad.png"><span>Notepad</span></div>
+            <div class="app-icon" onclick="openIO()">
+    <img src="https://img.icons8.com/color/96/keyboard.png">
+    <span>I/O Device</span>
+</div>
+<div class="app-icon" data-name="settings" onclick="openSettings()">
+    <img src="https://img.icons8.com/color/96/settings.png">
+    <span>Settings</span>
+</div>
+            <div class="app-icon" data-name="photos"><img src="https://img.icons8.com/color/96/google-photos-new.png"><span>Photos</span></div>
+            <div class="app-icon" data-name="calculator"><img src="https://img.icons8.com/color/96/calculator.png"><span>Calc</span></div>
+        </div>
+    </div>
+
+    <!-- Taskbar -->
+    <div class="taskbar" id="taskbar">
+        <div class="tb-btn" onclick="event.stopPropagation(); toggleStart()">
+            <img src="https://img.icons8.com/color/96/windows-11.png">
+        </div>
+        <div class="tb-icons-center">
+            <div class="tb-btn" onclick="toggleStart()"><img src="https://img.icons8.com/color/48/search--v1.png"></div>
+            <div class="tb-btn"><img src="https://img.icons8.com/color/96/folder-invoices--v1.png"></div>
+            <div class="tb-btn"><img src="https://img.icons8.com/color/96/visual-studio-code-2019.png"></div>
+        </div>
+        <div style="padding-right: 15px; text-align: right; font-size: 11px;">
+            <div id="small-time">00:00</div>
+            <div id="small-date">0/0/0000</div>
+        </div>
+    </div>
+
+<!-- Settings Window Updated with 512GB & 16GB -->
+<div class="window" id="settingsWin" style="width: 650px; height: 500px; left: 25%; top: 15%;">
+    <div class="win-header" id="settingsHeader">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <img src="https://img.icons8.com/color/96/settings.png" width="16">
+            <span>Settings</span>
+        </div>
+        <div onclick="closeSettings()" style="cursor:pointer; font-size: 18px; padding: 0 5px;">&times;</div>
+    </div>
+    <div class="win-body" style="background: #1e1e1e; padding: 0; display: flex; flex-direction: column;">
+        
+        <!-- Header Info (Dell XPS 9550 Image & Model) -->
+        <div style="padding: 20px; background: rgba(255,255,255,0.03); display: flex; align-items: center; gap: 20px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+            <img src="https://tse2.mm.bing.net/th/id/OIP.12lVsyXtqHTQ-XOIWnbaWAHaEK?pid=Api&P=0&h=220" style="width: 150px; border-radius: 8px; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
+            <div>
+                <h1 style="font-size: 24px; margin-bottom: 5px;">Dell XPS 15 - 9550</h1>
+                <p style="color: var(--accent); font-size: 14px;">Mohamed Amr PC Edition</p>
+            </div>
+        </div>
+
+        <!-- Specs List -->
+        <div style="padding: 20px; overflow-y: auto;">
+            <h3 style="margin-bottom: 15px; font-size: 16px; color: #eee; border-left: 3px solid var(--accent); padding-left: 10px;">Device Specifications</h3>
+            
+            <div style="display: grid; gap: 10px;">
+                <!-- Device Name -->
+                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #aaa;"><i class="fas fa-desktop" style="margin-right: 8px;"></i> Device Name</span>
+                    <span>MOHAMED-AMR-PC</span>
+                </div>
+
+                <!-- Processor -->
+                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #aaa;"><i class="fas fa-microchip" style="margin-right: 8px;"></i> Processor</span>
+                    <span>Intel(R) Core(TM) i7-6700HQ @ 2.60GHz</span>
+                </div>
+
+                <!-- RAM (Modified to 16GB) -->
+                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #aaa;"><i class="fas fa-memory" style="margin-right: 8px;"></i> Installed RAM</span>
+                    <span style="font-weight: bold; color: #fff;">16.0 GB</span>
+                </div>
+
+                <!-- Storage (Modified to 512GB SSD) -->
+                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #aaa;"><i class="fas fa-hdd" style="margin-right: 8px;"></i> Storage (SSD)</span>
+                    <div style="text-align: right;">
+                        <div style="font-weight: bold;">512 GB NVMe</div>
+                        <div style="width: 120px; height: 6px; background: #333; margin-top: 5px; border-radius: 3px; overflow: hidden;">
+                            <!-- Blue bar showing usage -->
+                            <div style="width: 60%; height: 100%; background: var(--accent);"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Type -->
+                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #aaa;"><i class="fas fa-info-circle" style="margin-right: 8px;"></i> System Type</span>
+                    <span>64-bit OS, x64-based processor</span>
+                </div>
+            </div>
+
+            <!-- Customization Button -->
+            <button onclick="changeWallpaper()" style="margin-top: 20px; width: 100%; background: var(--accent); border: none; color: white; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <img src="https://img.icons8.com/color/48/picture.png" width="20">
+                Change Desktop Wallpaper
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ابحث عن السطر ده وعدله -->
+<div class="app-icon" data-name="settings" onclick="openSettings()">
+    <img src="https://img.icons8.com/color/96/settings.png">
+    <span>Settings</span>
+</div>
+
+
+<div class="window" id="ioWin" style="width: 800px; height: 400px; left: 15%; top: 20%; display: none;">
+    <div class="win-header" id="ioHeader">
+        <span>I/O Devices Simulator</span>
+        <div onclick="document.getElementById('ioWin').style.display='none'" style="cursor:pointer;">&times;</div>
+    </div>
+    <div class="win-body" style="background: #111; color: white; padding: 20px;">
+        <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h3>Mechanical Keyboard Layout</h3>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="kbToggle" checked> 
+                <span>Enable Key Lighting</span>
+            </label>
+        </div>
+        
+        <div class="keyboard-container">
+
+    <div class="keyboard-row">
+        <div class="key" data-key="Backquote">`</div>
+        <div class="key" data-key="Digit1">1</div>
+        <div class="key" data-key="Digit2">2</div>
+        <div class="key" data-key="Digit3">3</div>
+        <div class="key" data-key="Digit4">4</div>
+        <div class="key" data-key="Digit5">5</div>
+        <div class="key" data-key="Digit6">6</div>
+        <div class="key" data-key="Digit7">7</div>
+        <div class="key" data-key="Digit8">8</div>
+        <div class="key" data-key="Digit9">9</div>
+        <div class="key" data-key="Digit0">0</div>
+        <div class="key" data-key="Minus">-</div>
+        <div class="key" data-key="Equal">=</div>
+        <div class="key wide tiny" data-key="Backspace">⌫ Backspace</div>
+    </div>
+
+    <div class="keyboard-row">
+        <div class="key" data-key="Tab">Tab</div>
+        <div class="key" data-key="KeyQ">Q</div>
+        <div class="key" data-key="KeyW">W</div>
+        <div class="key" data-key="KeyE">E</div>
+        <div class="key" data-key="KeyR">R</div>
+        <div class="key" data-key="KeyT">T</div>
+        <div class="key" data-key="KeyY">Y</div>
+        <div class="key" data-key="KeyU">U</div>
+        <div class="key" data-key="KeyI">I</div>
+        <div class="key" data-key="KeyO">O</div>
+        <div class="key" data-key="KeyP">P</div>
+        <div class="key" data-key="BracketLeft">[</div>
+        <div class="key" data-key="BracketRight">]</div>
+        <div class="key wide tiny" data-key="Backslash">\</div>
+    </div>
+
+    <div class="keyboard-row">
+        <div class="key" data-key="CapsLock">Caps</div>
+        <div class="key" data-key="KeyA">A</div>
+        <div class="key" data-key="KeyS">S</div>
+        <div class="key" data-key="KeyD">D</div>
+        <div class="key" data-key="KeyF">F</div>
+        <div class="key" data-key="KeyG">G</div>
+        <div class="key" data-key="KeyH">H</div>
+        <div class="key" data-key="KeyJ">J</div>
+        <div class="key" data-key="KeyK">K</div>
+        <div class="key" data-key="KeyL">L</div>
+        <div class="key" data-key="Semicolon">;</div>
+        <div class="key" data-key="Quote">'</div>
+        <div class="key wide" data-key="Enter">↵ Enter</div>
+    </div>
+
+    <div class="keyboard-row">
+        <div class="key wide tiny" data-key="ShiftLeft">Shift</div>
+        <div class="key" data-key="KeyZ">Z</div>
+        <div class="key" data-key="KeyX">X</div>
+        <div class="key" data-key="KeyC">C</div>
+        <div class="key" data-key="KeyV">V</div>
+        <div class="key" data-key="KeyB">B</div>
+        <div class="key" data-key="KeyN">N</div>
+        <div class="key" data-key="KeyM">M</div>
+        <div class="key" data-key="Comma">,</div>
+        <div class="key" data-key="Period">.</div>
+        <div class="key" data-key="Slash">/</div>
+        <div class="key wide tiny" data-key="ShiftRight">Shift</div>
+    </div>
+
+    <div class="keyboard-row">
+        <div class="key wide tiny" data-key="ControlLeft">Ctrl</div>
+        <div class="key wide tiny" data-key="AltLeft">Alt</div>
+        <div class="key space" data-key="Space">␣ Space</div>
+        <div class="key wide tiny" data-key="AltRight">AltGr</div>
+        <div class="key wide tiny" data-key="ContextMenu">Menu</div>
+        <div class="key wide tiny" data-key="ControlRight">Ctrl</div>
+    </div>
+
+</div>
+   
+
+<div class="app-icon" onclick="openIO()">
+    <img src="https://img.icons8.com/color/96/keyboard.png">
+    <span>I/O Device</span>
+</div>
+
+
+
+    <!-- Right-click Taskbar Context Menu -->
+    <div id="taskbar-context-menu" class="context-menu">
+        <div class="menu-item" onclick="openTaskManager()">
+            <i class="fas fa-chart-line"></i>
+            <span>Task Manager</span>
+        </div>
+        <hr>
+        <div class="menu-item" onclick="alert('Taskbar settings coming soon')">
+            <i class="fas fa-cog"></i>
+            <span>Taskbar settings</span>
+        </div>
+    </div>
+
+
+
+    <script>
+        // ----- Virtual Files & Running Processes -----
+        let virtualFiles = [];
+        let runningProcesses = []; // { id, name, type, cpu, ram, windowId, isOpen }
+        let processCounter = 1;
+
+        // Initialize
+        function initProcesses() {
+            runningProcesses = [];
+        }
+
+        // Update dynamic resource usage
+        function updateResourceUsage() {
+            for (let i = 0; i < runningProcesses.length; i++) {
+                let proc = runningProcesses[i];
+                if (proc.isOpen) {
+                    proc.cpu = Math.min(45, Math.max(1, proc.cpu + (Math.random() - 0.5) * 4));
+                    proc.ram = Math.min(350, Math.max(20, proc.ram + (Math.random() - 0.5) * 10));
+                    proc.cpu = Math.round(proc.cpu * 10) / 10;
+                    proc.ram = Math.round(proc.ram);
+                }
+            }
+            renderTaskManager();
+        }
+
+        // Open app from start menu
+        function openAppProcess(appName, appType) {
+            const existing = runningProcesses.find(p => p.name === appName && p.isOpen === true);
+            if (existing) {
+                alert(`${appName} is already running!`);
+                return false;
+            }
+            const newProc = {
+                id: processCounter++,
+                name: appName,
+                type: appType,
+                cpu: Math.floor(Math.random() * 18) + 2,
+                ram: Math.floor(Math.random() * 120) + 30,
+                isOpen: true,
+                windowId: null
+            };
+            runningProcesses.push(newProc);
+            
+            if (appType === 'terminal') {
+                document.getElementById('terminalWin').style.display = 'flex';
+                newProc.windowId = 'terminalWin';
+            } else if (appType === 'notepad') {
+                const newFile = { name: `New_Document_${Date.now()}.txt`, type: 'file', content: '' };
+                virtualFiles.push(newFile);
+                renderDesktop();
+                openNotepad(newFile.name);
+                newProc.windowId = 'notepadWin';
+            } else {
+                alert(`✅ ${appName} opened (simulated)`);
+            }
+            renderTaskManager();
+            return true;
+        }
+
+        // End task from Task Manager
+        function endTask(processId) {
+            const proc = runningProcesses.find(p => p.id === processId);
+            if (proc) {
+                if (proc.windowId === 'terminalWin') closeTerminal();
+                else if (proc.windowId === 'notepadWin') closeNotepad();
+                proc.isOpen = false;
+                runningProcesses = runningProcesses.filter(p => p.id !== processId);
+                renderTaskManager();
+                renderDesktop();
+            }
+        }
+
+        // Render Task Manager UI
+        function renderTaskManager() {
+            const tbody = document.getElementById('taskListBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            let totalCpu = 0;
+            let totalRam = 0;
+            
+            runningProcesses.forEach(proc => {
+                totalCpu += proc.cpu;
+                totalRam += proc.ram;
+                const cpuPercent = proc.cpu;
+                const ramMB = proc.ram;
+                
+                let cpuBarClass = '';
+                if (cpuPercent > 25) cpuBarClass = 'resource-high';
+                if (cpuPercent > 50) cpuBarClass = 'resource-critical';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><i class="fas ${proc.type === 'terminal' ? 'fa-terminal' : 'fa-file-alt'}"></i> ${proc.name}</td>
+                    <td><span style="color: #4caf50;">● Running</span></td>
+                    <td>
+                        <div class="resource-bar"><div class="resource-fill ${cpuBarClass}" style="width: ${Math.min(100, cpuPercent)}%;"></div></div>
+                        ${cpuPercent}%
+                    </td>
+                    <td>${ramMB} MB</td>
+                    <td><button class="end-task-btn" onclick="endTask(${proc.id})">End task</button></td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            if (runningProcesses.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No running processes</td></tr>';
+            }
+            
+            document.getElementById('totalCPU').innerText = Math.round(totalCpu);
+            document.getElementById('totalRAM').innerText = totalRam;
+        }
+
+        // Terminal control
+        function openTerminalApp() {
+            const existing = runningProcesses.find(p => p.name === 'Terminal (WSL)' && p.isOpen);
+            if (existing) {
+                document.getElementById('terminalWin').style.display = 'flex';
+                return;
+            }
+            runningProcesses.push({
+                id: processCounter++,
+                name: 'Terminal (WSL)',
+                type: 'terminal',
+                cpu: Math.floor(Math.random() * 12) + 3,
+                ram: Math.floor(Math.random() * 100) + 40,
+                isOpen: true,
+                windowId: 'terminalWin'
+            });
+            document.getElementById('terminalWin').style.display = 'flex';
+            renderTaskManager();
+            closeAll();
+            setTimeout(() => document.getElementById('termInput').focus(), 100);
+        }
+        
+        function openTerminal() { openTerminalApp(); }
+        
+        function closeTerminal() { 
+            document.getElementById('terminalWin').style.display = 'none';
+            const proc = runningProcesses.find(p => p.windowId === 'terminalWin');
+            if (proc) endTask(proc.id);
+        }
+        
+        // Notepad control
+        function openNotepad(fileName) {
+            const file = virtualFiles.find(f => f.name === fileName);
+            if (file) {
+                let notepadProc = runningProcesses.find(p => p.name === 'Notepad');
+                if (!notepadProc) {
+                    notepadProc = {
+                        id: processCounter++,
+                        name: 'Notepad',
+                        type: 'notepad',
+                        cpu: Math.floor(Math.random() * 8) + 1,
+                        ram: Math.floor(Math.random() * 70) + 25,
+                        isOpen: true,
+                        windowId: 'notepadWin'
+                    };
+                    runningProcesses.push(notepadProc);
+                }
+                document.getElementById('notepadWin').style.display = 'flex';
+                document.getElementById('notepadTitle').innerText = fileName + " - Notepad";
+                document.getElementById('notepadContent').value = file.content || "";
+                renderTaskManager();
+            }
+        }
+        
+        function closeNotepad() { 
+            document.getElementById('notepadWin').style.display = 'none';
+            const proc = runningProcesses.find(p => p.windowId === 'notepadWin');
+            if (proc) endTask(proc.id);
+        }
+        
+        // Task Manager window
+        function openTaskManager() {
+            document.getElementById('taskManagerWin').style.display = 'flex';
+            renderTaskManager();
+        }
+        
+        function closeTaskManager() {
+            document.getElementById('taskManagerWin').style.display = 'none';
+        }
+        
+        // Render desktop icons
+        function renderDesktop() {
+            const desktop = document.getElementById('desktop');
+            desktop.innerHTML = `
+                <div class="item" ondblclick="alert('This PC - Windows 11 Pro')">
+                    <img src="https://img.icons8.com/fluency/96/computer.png">
+                    <span>This PC</span>
+                </div>`;
+            virtualFiles.forEach(file => {
+                const icon = file.type === 'dir' ? 'https://img.icons8.com/color/96/folder-invoices--v1.png' : 'https://img.icons8.com/color/96/file.png';
+                const action = file.type === 'file' ? `ondblclick="openNotepad('${file.name}')"` : "";
+                desktop.innerHTML += `<div class="item" ${action}><img src="${icon}"><span>${file.name}</span></div>`;
+            });
+        }
+        
+        // Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('big-time').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit', hour12: false});
+            document.getElementById('big-date').innerText = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            document.getElementById('small-time').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true});
+            document.getElementById('small-date').innerText = now.toLocaleDateString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+        
+        // Start Menu
+        function toggleStart() {
+            const menu = document.getElementById('startMenu');
+            menu.classList.toggle('show');
+            if(menu.classList.contains('show')) setTimeout(() => document.getElementById('searchInput').focus(), 100);
+        }
+        function closeAll() { document.getElementById('startMenu').classList.remove('show'); }
+        
+        function searchApps() {
+            let input = document.getElementById('searchInput').value.toLowerCase();
+            let apps = document.querySelectorAll('.app-icon');
+            let pinnedText = document.getElementById('pinned-text');
+            apps.forEach(app => {
+                let appName = app.getAttribute('data-name') || '';
+                app.style.display = appName.includes(input) ? "flex" : "none";
+            });
+            pinnedText.innerText = input === "" ? "Pinned" : "Best Match";
+        }
+        
+        // Terminal commands (Ubuntu style)
+        const termInput = document.getElementById('termInput');
+        const termHistory = document.getElementById('termHistory');
+        
+        termInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                const command = this.value.trim();
+                const cmdParts = command.split(/\s+/); 
+                const baseCmd = cmdParts[0].toLowerCase();
+                let res = "";
+                
+                if (baseCmd === "echo" && command.includes(">")) {
+                    const parts = command.split(">");
+                    const content = parts[0].replace("echo", "").trim().replace(/['"]/g, "");
+                    const fileName = parts[1].trim();
+                    if (fileName) {
+                        let file = virtualFiles.find(f => f.name === fileName);
+                        if (file) file.content = content;
+                        else virtualFiles.push({ name: fileName, type: 'file', content: content });
+                        renderDesktop();
+                        res = `✅ Content written to ${fileName}`;
+                    }
+                } else if (baseCmd === "echo") {
+                    res = command.replace("echo", "").trim().replace(/['"]/g, "");
+                } else if (baseCmd === "pwd") {
+                    res = "/home/mohamed/desktop";
+                } else if (baseCmd === "ls") {
+                    if (virtualFiles.length === 0) res = "";
+                    else res = virtualFiles.map(f => f.name).join("  ");
+                } else if (baseCmd === "touch") {
+                    const fileName = cmdParts[1];
+                    if (fileName && !virtualFiles.find(f => f.name === fileName)) {
+                        virtualFiles.push({ name: fileName, type: 'file', content: "" });
+                        renderDesktop();
+                        res = `✅ Created ${fileName}`;
+                    }
+                } else if (baseCmd === "mkdir") {
+                    const folderName = cmdParts[1];
+                    if(folderName) { virtualFiles.push({ name: folderName, type: 'dir' }); renderDesktop(); res = `📁 Folder ${folderName} created`; }
+                } else if (baseCmd === "cat") {
+                    const fileName = cmdParts[1];
+                    const file = virtualFiles.find(f => f.name === fileName);
+                    if (file) res = file.content || "(empty file)";
+                    else res = `cat: ${fileName}: No such file`;
+                } else if (baseCmd === "rm") {
+                    const target = cmdParts[1];
+                    virtualFiles = virtualFiles.filter(f => f.name !== target);
+                    renderDesktop();
+                    res = `🗑️ Removed ${target}`;
+                } else if (baseCmd === "clear") { 
+                    termHistory.innerHTML = ""; this.value = ""; return; 
+                } else if (command !== "") { 
+                    res = `-bash: ${baseCmd}: command not found`; 
+                }
+                
+                termHistory.innerHTML += `<div><span style="color: #8ae234;">mohamed@ubuntu</span>:<span style="color: #729fcf;">~/desktop</span>$ ${command}</div>`;
+                if (res) termHistory.innerHTML += `<div style="margin-bottom:10px;">${res}</div>`;
+                this.value = "";
+                document.getElementById('termBody').scrollTop = termHistory.scrollHeight;
+            }
+        });
+        
+ // --- التعديل الجديد للـ Context Menu ---
+const taskbarEl = document.querySelector('footer') || document.querySelector('.taskbar') || document.getElementById('taskbar');
+const taskbarMenu = document.getElementById('taskbar-context-menu');
+
+if (taskbarEl && taskbarMenu) {
+    taskbarEl.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        
+        taskbarMenu.style.display = 'block';
+        taskbarMenu.style.zIndex = "10000"; 
+        
+        // بيحدد مكان الماوس بالظبط
+        taskbarMenu.style.left = e.clientX + 'px';
+        
+        // بيخلي القائمة تظهر فوق الشريط مش تحته
+        let menuHeight = taskbarMenu.offsetHeight || 40; 
+        taskbarMenu.style.top = (e.clientY - menuHeight) + 'px';
+        
+        e.stopPropagation(); 
+    });
+}
+
+// قفل القائمة لما تدوس في أي مكان فاضي
+window.addEventListener('click', function() { 
+    if(taskbarMenu) taskbarMenu.style.display = 'none'; 
+});
+        
+        // Add default files
+        virtualFiles.push({ name: "Welcome.txt", type: "file", content: "Welcome to Windows 11 Pro - Mohamed Amr Edition\nYou can create, edit files and monitor processes in Task Manager!" });
+        virtualFiles.push({ name: "Projects", type: "dir", content: null });
+        renderDesktop();
+        
+        // Auto-update resources every 2 seconds
+        setInterval(() => {
+            updateResourceUsage();
+        }, 2000);
+        
+        // App icons click handler
+        document.querySelectorAll('.app-icon').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                let appSpan = icon.querySelector('span');
+                if (!appSpan) return;
+                let appName = appSpan.innerText;
+                if (appName === 'Terminal') openTerminalApp();
+                else if (appName === 'Notepad') openAppProcess('Notepad', 'notepad');
+                else if (appName === 'Calc') alert('🧮 Calculator: 2+2=4');
+                else if (appName === 'Photos') alert('📸 Photos app coming soon');
+                else alert(`🚀 ${appName} will open soon`);
+                closeAll();
+                e.stopPropagation();
+            });
+        });
+        
+        // Make windows draggable
+        function makeDraggable(winId, headerId) {
+            const win = document.getElementById(winId);
+            const header = document.getElementById(headerId) || win?.querySelector('.win-header');
+            if (!win || !header) return;
+            let isDragging = false, offsetX, offsetY;
+            header.style.cursor = 'grab';
+            header.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.win-header') && !e.target.closest('[onclick]')) {
+                    isDragging = true;
+                    offsetX = e.clientX - win.offsetLeft;
+                    offsetY = e.clientY - win.offsetTop;
+                    header.style.cursor = 'grabbing';
+                    e.preventDefault();
+                }
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    let newLeft = e.clientX - offsetX;
+                    let newTop = e.clientY - offsetY;
+                    newLeft = Math.min(Math.max(newLeft, 0), window.innerWidth - win.offsetWidth);
+                    newTop = Math.min(Math.max(newTop, 0), window.innerHeight - win.offsetHeight - 40);
+                    win.style.left = newLeft + 'px';
+                    win.style.top = newTop + 'px';
+                }
+            });
+            window.addEventListener('mouseup', () => { isDragging = false; header.style.cursor = 'grab'; });
+        }
+        makeDraggable('terminalWin', 'termHeader');
+        makeDraggable('notepadWin', null);
+        makeDraggable('taskManagerWin', 'taskManagerHeader');
+
+
+function openSettings() {
+    document.getElementById('settingsWin').style.display = 'flex';
+    
+    // محاولة قراءة الرامات من المتصفح (بالجيجا)
+    if(navigator.deviceMemory) {
+        document.getElementById('realRAM').innerText = navigator.deviceMemory + " GB (Actual)";
+    }
+    
+    closeAll();
+}
+
+// دالة قفل نافذة الإعدادات
+function closeSettings() {
+    document.getElementById('settingsWin').style.display = 'none';
+}
+
+// دالة تغيير الخلفية
+function changeWallpaper() {
+    const images = [
+        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b',
+        'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
+        'https://images.unsplash.com/photo-1470770841072-f978cf4d019e'
+    ];
+    const randomImg = images[Math.floor(Math.random() * images.length)];
+    document.body.style.background = `url('${randomImg}') center/cover no-repeat`;
+}
+
+// تفعيل خاصية السحب لنافذة الإعدادات
+makeDraggable('settingsWin', 'settingsHeader');
+
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    const allVirtualKeys = document.querySelectorAll('.key');
+
+    function addFlashEffect(keyElement) {
+
+        if (!keyElement) return;
+
+        keyElement.classList.add('active');
+
+        setTimeout(() => {
+            keyElement.classList.remove('active');
+        }, 150);
+    }
+
+    window.addEventListener('keydown', (event) => {
+
+        if (!document.getElementById('kbToggle').checked) return;
+
+        const pressedCode = event.code;
+
+        const matchedKey = document.querySelector(`.key[data-key="${pressedCode}"]`);
+
+        if (matchedKey) {
+            addFlashEffect(matchedKey);
+        }
+    });
+
+    allVirtualKeys.forEach(btn => {
+
+        btn.addEventListener('mousedown', (e) => {
+
+            e.preventDefault();
+
+            btn.classList.add('active');
+
+            setTimeout(() => {
+                btn.classList.remove('active');
+            }, 130);
+        });
+    });
+
+});
+
+function openIO() {
+    document.getElementById('ioWin').style.display = 'block';
+    makeDraggable('ioWin', 'ioHeader');
+}
+
+
+let topZ = 2000;
+
+document.querySelectorAll('.window').forEach(win => {
+    win.addEventListener('mousedown', () => {
+        topZ++;
+        win.style.zIndex = topZ;
+    });
+});
+
+
+
+
+
+
+    </script>
+</body>
+</html>
